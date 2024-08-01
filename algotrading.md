@@ -71,15 +71,32 @@ share_size <- 100
 accumulated_shares <- 0
 
 for (i in 1:nrow(amd_df)) {
-# Fill your code here
-}
+current_price <- amd_df$close[i] 
+if (previous_price == 0) {
+amd_df$trade_type[i] <- "buy"
+amd_df$costs_proceeds[i] <- -current_price * share_size
+accumulated_shares <- accumulated_shares + share_size 
+  }
+else if (current_price < previous_price) {
+amd_df$trade_type[i] <- "buy"
+amd_df$costs_proceeds[i] <- -current_price * share_size
+accumulated_shares <- accumulated_shares + share_size
+} 
+amd_df$accumulated_shares[i] <- accumulated_shares    
+previous_price <- current_price  
+if (i==nrow(amd_df)) { amd_df$trade_type[i] <- 'sell' 
+amd_df$costs_proceeds[i]<- current_price * accumulated_shares 
+} 
+amd_df$accumulated_shares[i]=0 
 ```
 
 
 ### Step 3: Customize Trading Period
 - Define a trading period you wanted in the past five years 
 ```r
-# Fill your code here
+# Define a trading period
+start_date <- as.Date("2019-05-20") end_date <- as.Date("2020-05-20") 
+ amd_df <- amd_df[amd_df$date >= start_date & amd_df$date <= end_date] 
 ```
 
 
@@ -91,7 +108,20 @@ After running your algorithm, check if the trades were executed as expected. Cal
 - ROI Formula: $$\text{ROI} = \left( \frac{\text{Total Profit or Loss}}{\text{Total Capital Invested}} \right) \times 100$$
 
 ```r
-# Fill your code here
+# Total Profit/Loss Calculation omitting any N/A values.  
+total_profit_loss <- sum(amd_df$costs_proceeds, na.rm = TRUE) 
+ 
+# Invested Capital Calculation omitting any N/A values. 
+total_invested_capital <- -sum(amd_df$costs_proceeds[amd_df$trade_type == "buy"], na.rm = TRUE) 
+ 
+# ROI Calculation 
+ROI <- (total_profit_loss / total_invested_capital) * 100 
+ 
+# Print the results of "Total Profit/Loss", "Total Invested Capital" and 
+"ROI" cat("Total Profit/Loss: ", total_profit_loss, "\n") 
+## Total Profit/Loss:  196930 cat("Total Invested Capital: ", total_invested_capital, "\n") 
+## Total Invested Capital:  428999 cat("ROI: ", ROI, "%\n") 
+## ROI:  45.90453 % 
 ```
 
 ### Step 5: Profit-Taking Strategy or Stop-Loss Mechanisum (Choose 1)
@@ -100,7 +130,47 @@ After running your algorithm, check if the trades were executed as expected. Cal
 
 
 ```r
-# Fill your code here
+for (i in 1:nrow(amd_df)) {   current_price <- amd_df$close[i] 
+     if (i == 1) {
+amd_df$trade_type[i] <- "buy" 
+amd_df$costs_proceeds[i] <- -current_price * share_size
+accumulated_shares <- share_size 
+    total_invested <- -amd_df$costs_proceeds[i]
+amd_df$accumulated_shares[i] <- accumulated_shares 
+  } else { 
+# Calculate average purchase price 
+average_purchase_price <- total_invested / accumulated_shares 
+    if (!is.na(average_purchase_price) && current_price >= average_purchase_price * 1.2) {
+amd_df$trade_type[i] <- "sell_half" 
+amd_df$costs_proceeds[i] <- current_price * (accumulated_shares / 2)
+accumulated_shares <- accumulated_shares / 2
+total_invested <- total_invested / 2 
+    }
+else if (current_price < amd_df$close[i - 1]) {
+amd_df$trade_type[i] <- "buy"
+amd_df$costs_proceeds[i] <- -current_price * share_size
+accumulated_shares <- accumulated_shares + share_size
+total_invested <- total_invested - amd_df$costs_proceeds[i] 
+    } 
+amd_df$accumulated_shares[i] <- accumulated_shares  }
+}
+ 
+# Ensure final sell on the last day
+amd_df$trade_type[nrow(amd_df)] <- "sell_all" 
+amd_df$costs_proceeds[nrow(amd_df)] <- amd_df$close[nrow(amd_df)] * accumulated_shares amd_df$accumulated_shares[nrow(amd_df)] <- 0 
+ 
+# Total Profit/Loss Calculation omitting any N/A values total_profit_loss <- sum(amd_df$costs_proceeds, na.rm = TRUE) 
+ 
+# Invested Capital Calculation omitting any N/A values total_invested_capital <- -sum(amd_df$costs_proceeds[amd_df$trade_type == "buy"], na.rm = TRUE) 
+ 
+# ROI Calculation 
+ROI <- (total_profit_loss / total_invested_capital) * 100 
+ 
+# Print the results of "Total Profit/Loss", "Total Invested Capital" and 
+"ROI" cat("Total Profit/Loss: ", total_profit_loss, "\n") 
+## Total Profit/Loss:  41569.02 cat("Total Invested Capital: ", total_invested_capital, "\n") 
+## Total Invested Capital:  170894 cat("ROI: ", ROI, "%\n") 
+## ROI:  24.32445 % 
 ```
 
 
@@ -110,10 +180,29 @@ After running your algorithm, check if the trades were executed as expected. Cal
 
 
 ```r
-# Fill your code here and Disucss
+# Assigning ROI values with Step 3's strategy as ROI_1 and Step 5's strategy as ROI_2 
+ROI_1 <- 45.90453 
+ROI_2 <- 24.32445 
+ 
+# Calculating ΔROI 
+ΔROI <- ROI_2 - ROI_1 
+ 
+# Assigning PnL values where Step 3's strategy is recorded as PnL_1 and Step 5's strategy as PnL_2 
+PnL_1 <- 196930 
+PnL_2  <- 41569 
+ 
+# Calculating theΔPnL ΔPnL <- PnL_2 - PnL_1 
+ 
+# Printing the results of "ΔROI" and "ΔPnL" cat("ΔROI:", ΔROI, "\n") ## ΔROI: -21.58008 cat("ΔPnL:", ΔPnL, "\n") 
+## ΔPnL: -155361 
+# Convert the date column to Date type and Close as numeric to enable plotting of data. 
+amd_df$date <- as.Date(amd_df$date) amd_df$close <- as.numeric(amd_df$close) 
+ 
+amd_df <- amd_df[, c("date", "close")] 
+plot(amd_df$date, amd_df$close,'l') 
 ```
 
-Sample Discussion: On Wednesday, December 6, 2023, AMD CEO Lisa Su discussed a new graphics processor designed for AI servers, with Microsoft and Meta as committed users. The rise in AMD shares on the following Thursday suggests that investors believe in the chipmaker's upward potential and market expectations; My first strategy earned X dollars more than second strategy on this day, therefore providing a better ROI.
+Though both strategies generate relatively small profits for AMD due to the impact of Covid-19, step 5’s strategy yields a lower profit compared to the strategy used in step 3. Step 3 achieved a profit of $196,930 with a total invested capital of $428,999, translating to an ROI of 45.90453%. In contrast, the profit-taking strategy in step 5 gained a profit of $41,569 with a total invested capital of $170,894, yielding an ROI of 24.32445%. The lower ROI in step 5 is attributed to the global pandemic known as Covid-19, which limited the increase in purchase price, resulting in difficulties to reach above 20% from the average purchase price. This limitation in purchase prices is attributed to the initial phases of the pandemic where on March 11, 2020, the WHO officially declared COVID-19 a pandemic. This announcement, combined with the rising number of cases and implementation of lockdowns triggered widespread panic. As a result, stock markets around the world plunged leading to market uncertainty and instability. Evidence is seen with the graph where the company AMD’s stock price decreased by 34.45% from $58.90 at 2020-02-19, the peak, to $38.61 on 2020-03-23, the trough. However, AMD’s stock prices increase where the customised trading period subtly reveals this from 2020-03-23 onwards as shown on the graph. This is as restrictions had surged for a demand in technological products and services such as remote work solutions, cloud computing and entertainment. This heightened demand for powerful processors and graphics cards to accompany people’s needs caused AMD to maintain competitive strength in the market. In conclusion, while both trading strategies yielded reduced profit during the customised trading period, step 3 outperformed step 5, achieving a higher ROI due to COVID-19’s constraints on stock price increases. 
 
 
 
